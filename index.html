@@ -99,7 +99,7 @@
 
   #main { padding:20px; max-width:1280px; margin:0 auto; }
   .week-nav { display:flex; align-items:center; gap:10px; margin-bottom:16px; background:var(--surface); padding:14px 18px; border-radius:12px; border:1px solid var(--border); }
-  .week-info { font-size:13px; color:var(--text-2); }
+  .week-info { font-size:18px; color:#DC2626; font-weight:700; }
   .week-btn { width:34px; height:34px; background:var(--surface-bg); border:1px solid var(--border-strong); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text); transition:background 0.15s; }
   .week-btn:hover { background:var(--teal-light); border-color:var(--teal); color:var(--teal-dark); }
   .week-label { font-size:15px; font-weight:600; min-width:130px; text-align:center; }
@@ -304,10 +304,12 @@ function getWeekStart(y,w) {
 }
 function fmtD(d) { return d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'}); }
 function wKey(y,w) { return `${y}W${String(w).padStart(2,'0')}`; }
-function initCW() {
-  const n=new Date(); currentWeek={year:n.getFullYear(),week:getISOWeek(n)};
-  currentWeek.key=wKey(currentWeek.year,currentWeek.week);
-}
+function initCW() { 
+ const n=new Date(); let year=n.getFullYear(); 
+ let week=getISOWeek(n)+1; 
+ const last=getISOWeek(new Date(year,11,28)); 
+ if(week>last){ year++; week=1; } currentWeek={year,week,key:wKey(year,week)}; }
+ 
 function navWeek(d) {
   let {year,week}=currentWeek; week+=d;
   if(week<1){year--;week=getISOWeek(new Date(year,11,28));}
