@@ -308,8 +308,8 @@ function initCW() {
  const n=new Date(); let year=n.getFullYear(); 
  let week=getISOWeek(n)+1; 
  const last=getISOWeek(new Date(year,11,28)); 
- if(week>last){ year++; week=1; } currentWeek={year,week,key:wKey(year,week)}; }
- 
+ if(week>last){ year++; week=1; } currentWeek={year,week,key:wKey(year,week)};
+} 
 function navWeek(d) {
   let {year,week}=currentWeek; week+=d;
   if(week<1){year--;week=getISOWeek(new Date(year,11,28));}
