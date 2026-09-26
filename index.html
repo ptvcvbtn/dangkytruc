@@ -99,7 +99,7 @@
 
   #main { padding:20px; max-width:1280px; margin:0 auto; }
   .week-nav { display:flex; align-items:center; gap:10px; margin-bottom:16px; background:var(--surface); padding:14px 18px; border-radius:12px; border:1px solid var(--border); }
-  .week-info { font-size:18px; color:#DC2626; font-weight:700; }
+  .week-info { font-size:13px; color:var(--text-2); }
   .week-btn { width:34px; height:34px; background:var(--surface-bg); border:1px solid var(--border-strong); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text); transition:background 0.15s; }
   .week-btn:hover { background:var(--teal-light); border-color:var(--teal); color:var(--teal-dark); }
   .week-label { font-size:15px; font-weight:600; min-width:130px; text-align:center; }
@@ -269,7 +269,7 @@
 
 <script>
 // ============ CONSTANTS ============
-const WEBHOOK = "https://script.google.com/macros/s/AKfycbxftOPy9G1TtUkoU-dRyFEvtov8AhRb-BZ7R1wZQvSYNF4X7gWir9ZGXFojNbaMtS1nRQ/exec";
+const WEBHOOK = "https://script.google.com/macros/s/AKfycbwQEmAU1NgIHn6lB6F1TxCYbNEJQwx2jmls5MbmiIyaV6Uxix_315LZTNxvR_nuJ1cBzg/exec";
 const DAYS    = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','Chủ nhật'];
 const DAY_KEYS= ['2','3','4','5','6','7','CN'];
 const SHIFTS  = [
@@ -290,6 +290,9 @@ let selectedStaff = null;
 let currentOtp       = null;
 let currentOtpExpiry = null;
 let isFetching  = false;
+let isWriting   = false;   // true khi đang gửi dữ liệu lên Sheets (đăng ký/hủy/tránh ca/đổi mật khẩu)
+let isPollingNow= false;   // true khi đang trong 1 lần đồng bộ nền
+let pollTimer   = null;
 
 // ============ UTILS ============
 function getISOWeek(date) {
@@ -304,12 +307,10 @@ function getWeekStart(y,w) {
 }
 function fmtD(d) { return d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'}); }
 function wKey(y,w) { return `${y}W${String(w).padStart(2,'0')}`; }
-function initCW() { 
- const n=new Date(); let year=n.getFullYear(); 
- let week=getISOWeek(n)+1; 
- const last=getISOWeek(new Date(year,11,28)); 
- if(week>last){ year++; week=1; } currentWeek={year,week,key:wKey(year,week)};
-} 
+function initCW() {
+  const n=new Date(); currentWeek={year:n.getFullYear(),week:getISOWeek(n)};
+  currentWeek.key=wKey(currentWeek.year,currentWeek.week);
+}
 function navWeek(d) {
   let {year,week}=currentWeek; week+=d;
   if(week<1){year--;week=getISOWeek(new Date(year,11,28));}
@@ -436,7 +437,12 @@ async function registerShift(weekK, dayK, shiftK) {
   if(!weekCache[weekK][dayK]) weekCache[weekK][dayK]={morning:[],afternoon:[],evening:[]};
   weekCache[weekK][dayK][shiftK] = names;
   renderGrid(weekCache[weekK]);
-  await writeShift(weekK, dayK);
+  isWriting = true;
+  try {
+    await writeShift(weekK, dayK);
+  } finally {
+    isWriting = false;
+  }
   toast(`Đã đăng ký ${SHIFTS.find(s=>s.key===shiftK)?.label}!`,'ok');
 }
 
@@ -445,7 +451,12 @@ async function unregisterShift(weekK, dayK, shiftK) {
   const names=(weekCache[weekK]?.[dayK]?.[shiftK]||[]).filter(n=>n!==currentUser.name);
   weekCache[weekK][dayK][shiftK]=names;
   renderGrid(weekCache[weekK]);
-  await writeShift(weekK, dayK);
+  isWriting = true;
+  try {
+    await writeShift(weekK, dayK);
+  } finally {
+    isWriting = false;
+  }
   toast('Đã hủy đăng ký ca.','');
 }
 
@@ -742,7 +753,12 @@ document.getElementById('newpass-btn').addEventListener('click',async()=>{
   const s=selectedStaff;
 
   loading(true,'Đang lưu mật khẩu mới...');
-  await apiPost({ action:'setPassword', name:s.name, newPass:np });   // ← GHI LÊN GOOGLE SHEET
+  isWriting = true;
+  try {
+    await apiPost({ action:'setPassword', name:s.name, newPass:np });   // ← GHI LÊN GOOGLE SHEET
+  } finally {
+    isWriting = false;
+  }
   loading(false);
 
   const idx=config.staff.findIndex(x=>x.name===s.name);
@@ -802,10 +818,40 @@ document.getElementById('save-avoid-btn').addEventListener('click',async()=>{
   avoidData[weekK][currentUser.name]=sel;
   saveAvoidCache();
   // Ghi avoid lên Sheets cột H của Admin sheet
-  await apiPost({ action:'setAvoid', week:weekK, name:currentUser.name, avoids:sel });
+  isWriting = true;
+  try {
+    await apiPost({ action:'setAvoid', week:weekK, name:currentUser.name, avoids:sel });
+  } finally {
+    isWriting = false;
+  }
   document.getElementById('avoid-modal-bg').classList.remove('show');
   toast(`Đã lưu ${sel.length} ca cần tránh.`,'ok');
   renderGrid(weekCache[weekK]);
+});
+
+// ============ ĐỒNG BỘ NỀN MỖI 15 GIÂY ============
+// Âm thầm tải lại dữ liệu tuần đang xem, để nhiều người cùng dùng thấy được
+// đăng ký của nhau mà không cần bấm F5. Bỏ qua nếu đang tải lần đầu hoặc
+// đang ghi dữ liệu (đăng ký/hủy/tránh ca/đổi mật khẩu) để tránh xung đột.
+async function pollWeek() {
+  if (isFetching || isWriting || isPollingNow) return;
+  isPollingNow = true;
+  try {
+    const schedule = await loadWeek(currentWeek.key);
+    renderGrid(schedule);
+  } catch(e) {
+    console.warn('pollWeek failed:', e.message);
+  } finally {
+    isPollingNow = false;
+  }
+}
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollWeek, 15000); // 15 giây/lần
+}
+// Đồng bộ ngay khi quay lại tab (ví dụ người dùng chuyển tab rồi quay lại)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') pollWeek();
 });
 
 // ============ START ============
@@ -819,6 +865,7 @@ initCW();
   renderWeekNav();
   renderWeekTabs();
   await loadAndRenderWeek();
+  startPolling();
 })();
 </script>
 </body>
