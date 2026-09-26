@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Đăng ký ca trực</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy:#0F1B2D; --navy-mid:#1A2F4A;
+    --teal:#0EA5A0; --teal-light:#E0F7F6; --teal-dark:#0A7A76;
+    --surface:#FFFFFF; --surface-bg:#F4F6F9;
+    --border:#E2E8F0; --border-strong:#CBD5E1;
+    --text:#0F172A; --text-2:#475569; --text-3:#94A3B8;
+    --morning:#FEF3C7; --afternoon:#DBEAFE; --evening:#F3E8FF;
+    --radius:8px; --sidebar-w:300px;
+  }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--surface-bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+  #overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:40; }
+  #overlay.show { display:block; }
+
+  #sidebar {
+    position:fixed; top:0; left:0; bottom:0; width:var(--sidebar-w);
+    background:var(--surface); border-right:1px solid var(--border);
+    z-index:50; transform:translateX(calc(-1 * var(--sidebar-w)));
+    transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);
+    display:flex; flex-direction:column;
+    box-shadow:4px 0 24px rgba(0,0,0,0.12);
+  }
+  #sidebar.open { transform:translateX(0); }
+  .sidebar-header { background:var(--navy); padding:20px 20px 16px; color:white; }
+  .sidebar-header h2 { font-size:15px; font-weight:600; margin-bottom:4px; }
+  .sidebar-header p { font-size:12px; opacity:0.6; }
+  .sidebar-body { flex:1; overflow-y:auto; padding:12px; }
+  .staff-item {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-radius:var(--radius);
+    cursor:pointer; transition:background 0.15s; border:1px solid transparent;
+  }
+  .staff-item:hover { background:var(--surface-bg); border-color:var(--border); }
+  .staff-avatar {
+    width:36px; height:36px; border-radius:50%;
+    background:var(--teal-light); color:var(--teal-dark);
+    font-size:13px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .staff-info .sname { font-size:14px; font-weight:500; }
+  .staff-info .semail { font-size:12px; color:var(--text-3); }
+
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center; }
+  .modal-bg.show { display:flex; }
+  .modal {
+    background:var(--surface); border-radius:16px; padding:28px 26px;
+    width:400px; max-width:95vw; max-height:90vh; overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h3 { font-size:17px; font-weight:600; margin-bottom:4px; }
+  .modal .subtitle { font-size:13px; color:var(--text-2); margin-bottom:20px; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:13px; font-weight:500; margin-bottom:5px; color:var(--text-2); }
+  .field input { width:100%; padding:9px 13px; border:1px solid var(--border-strong); border-radius:var(--radius); font-size:14px; outline:none; transition:border-color 0.15s; }
+  .field input:focus { border-color:var(--teal); box-shadow:0 0 0 3px rgba(14,165,160,0.15); }
+  .btn-primary { width:100%; padding:11px; background:var(--teal); color:white; border:none; border-radius:var(--radius); font-size:14px; font-weight:600; cursor:pointer; transition:background 0.15s; }
+  .btn-primary:hover { background:var(--teal-dark); }
+  .btn-secondary { width:100%; padding:9px; background:var(--surface-bg); color:var(--text-2); border:1px solid var(--border-strong); border-radius:var(--radius); font-size:13px; cursor:pointer; margin-top:8px; }
+  .btn-link { background:none; border:none; color:var(--teal); font-size:13px; cursor:pointer; text-decoration:underline; }
+  .err { color:#DC2626; font-size:13px; margin-top:6px; display:none; }
+  .suc { color:#059669; font-size:13px; margin-top:6px; }
+
+  .otp-grid { display:flex; gap:8px; justify-content:center; margin:14px 0; }
+  .otp-input { width:42px; height:50px; text-align:center; font-size:20px; font-weight:700; border:2px solid var(--border-strong); border-radius:var(--radius); outline:none; }
+  .otp-input:focus { border-color:var(--teal); }
+
+  /* AVOID GRID */
+  .avoid-outer { overflow-x:auto; }
+  .avoid-table { border-collapse:collapse; width:100%; font-size:12px; }
+  .avoid-table th { padding:5px 6px; font-weight:600; color:var(--text-2); border-bottom:1px solid var(--border); text-align:center; }
+  .avoid-table td { padding:4px; }
+  .avoid-cell {
+    padding:5px 4px; border:1.5px solid var(--border-strong);
+    border-radius:6px; text-align:center; cursor:pointer;
+    transition:all 0.12s; user-select:none; font-size:11px; font-weight:500;
+  }
+  .avoid-cell:hover { border-color:var(--teal); background:var(--teal-light); }
+  .avoid-cell.sel { background:#FEE2E2; border-color:#F87171; color:#991B1B; font-weight:700; }
+
+  #topbar { background:var(--navy); padding:0 20px; height:60px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:30; }
+  #menu-btn { width:40px; height:40px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; color:white; flex-shrink:0; transition:background 0.15s; }
+  #menu-btn:hover { background:rgba(255,255,255,0.2); }
+  #topbar-title { color:white; font-size:16px; font-weight:600; flex:1; }
+  #user-badge { display:none; align-items:center; gap:8px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); border-radius:20px; padding:6px 12px 6px 8px; }
+  #user-badge.show { display:flex; }
+  .badge-av { width:28px; height:28px; border-radius:50%; background:var(--teal); color:white; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  #badge-name { font-size:13px; color:white; font-weight:500; }
+  .tbtn { font-size:12px; padding:4px 9px; border-radius:6px; cursor:pointer; border:1px solid; }
+  #avoid-btn { background:rgba(251,113,133,0.15); border-color:rgba(251,113,133,0.4); color:#FCA5A5; }
+  #logout-btn { background:rgba(239,68,68,0.15); border-color:rgba(239,68,68,0.3); color:#FCA5A5; margin-left:2px; }
+
+  #main { padding:20px; max-width:1280px; margin:0 auto; }
+  .week-nav { display:flex; align-items:center; gap:10px; margin-bottom:16px; background:var(--surface); padding:14px 18px; border-radius:12px; border:1px solid var(--border); }
+  .week-info { font-size:13px; color:var(--text-2); }
+  .week-btn { width:34px; height:34px; background:var(--surface-bg); border:1px solid var(--border-strong); border-radius:var(--radius); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text); transition:background 0.15s; }
+  .week-btn:hover { background:var(--teal-light); border-color:var(--teal); color:var(--teal-dark); }
+  .week-label { font-size:15px; font-weight:600; min-width:130px; text-align:center; }
+  .week-tabs { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .week-tab { padding:6px 14px; border:1px solid var(--border); border-radius:20px; font-size:13px; cursor:pointer; background:var(--surface); color:var(--text-2); transition:all 0.15s; }
+  .week-tab:hover { border-color:var(--teal); color:var(--teal-dark); }
+  .week-tab.active { background:var(--teal); border-color:var(--teal); color:white; font-weight:600; }
+
+  .grid-wrapper { background:var(--surface); border-radius:12px; border:1px solid var(--border); overflow:hidden; }
+  .shift-grid { width:100%; border-collapse:collapse; table-layout:fixed; }
+  .shift-grid th { background:var(--navy); color:white; padding:11px 6px; text-align:center; font-size:12px; font-weight:600; border-right:1px solid rgba(255,255,255,0.1); }
+  .shift-grid th:first-child { width:88px; }
+  .shift-label { padding:10px 8px; font-size:12px; vertical-align:top; border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .shift-label .sn { font-size:13px; font-weight:700; }
+  .shift-label .st { font-size:10px; color:var(--text-3); margin-top:2px; }
+  .shift-cell { padding:5px; vertical-align:top; border-right:1px solid var(--border); border-bottom:1px solid var(--border); min-height:70px; cursor:pointer; transition:background 0.1s; position:relative; }
+  .shift-cell:hover { background:rgba(14,165,160,0.05); }
+  .shift-cell:last-child { border-right:none; }
+  .shift-grid tr:last-child td { border-bottom:none; }
+  .cell-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
+  .cell-max { font-size:10px; color:var(--text-3); }
+  .cell-names { min-height:40px; }
+  .name-tag { display:inline-flex; align-items:center; gap:3px; padding:2px 6px; border-radius:10px; font-size:11px; font-weight:500; margin:2px; }
+  .name-tag.mine { cursor:pointer; }
+  .tag-del { width:13px; height:13px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; cursor:pointer; opacity:0.7; }
+  .tag-del:hover { opacity:1; }
+  .shift-morning .shift-label { background:#FFFBEB; }
+  .shift-morning .name-tag { background:var(--morning); color:#92400E; }
+  .shift-morning .name-tag.mine { background:#FDE68A; }
+  .shift-morning .tag-del { background:#FCD34D; color:#92400E; }
+  .shift-afternoon .shift-label { background:#EFF6FF; }
+  .shift-afternoon .name-tag { background:var(--afternoon); color:#1E3A8A; }
+  .shift-afternoon .name-tag.mine { background:#BFDBFE; }
+  .shift-afternoon .tag-del { background:#93C5FD; color:#1E3A8A; }
+  .shift-evening .shift-label { background:#FAF5FF; }
+  .shift-evening .name-tag { background:var(--evening); color:#4C1D95; }
+  .shift-evening .name-tag.mine { background:#DDD6FE; }
+  .shift-evening .tag-del { background:#C4B5FD; color:#4C1D95; }
+  .av-badge { position:absolute; top:3px; right:3px; font-size:9px; background:#FEE2E2; color:#991B1B; border-radius:4px; padding:1px 4px; font-weight:600; }
+  .cell-hint { font-size:10px; color:var(--text-3); text-align:center; padding:2px 0; display:none; }
+  .shift-cell:hover .cell-hint { display:block; }
+  .cell-full { cursor:not-allowed !important; }
+  .cell-full:hover { background:#FEF2F2 !important; }
+  .cell-full .cell-hint { display:none !important; }
+  .full-badge { font-size:10px; color:#DC2626; background:#FEE2E2; padding:2px 5px; border-radius:5px; display:inline-block; margin-top:2px; }
+  .cell-avoided-bg { background:#FFF5F5; }
+  .cell-avoided-bg:hover { background:#FEE2E2 !important; }
+
+  /* Loading skeleton */
+  .cell-loading { background: linear-gradient(90deg, var(--surface-bg) 25%, var(--border) 50%, var(--surface-bg) 75%); background-size:200% 100%; animation:shimmer 1.2s infinite; border-radius:6px; height:30px; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  .status-bar { display:flex; align-items:center; gap:8px; padding:10px 18px; background:var(--teal-light); border-top:1px solid rgba(14,165,160,0.2); font-size:13px; color:var(--teal-dark); }
+  .status-dot { width:7px; height:7px; border-radius:50%; background:var(--teal); flex-shrink:0; }
+  .legend { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:10px 16px; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-2); }
+  .legend-item { display:flex; align-items:center; gap:5px; }
+  .ldot { width:10px; height:10px; border-radius:3px; }
+
+  #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1E293B; color:white; padding:11px 20px; border-radius:10px; font-size:14px; z-index:200; opacity:0; transition:opacity 0.25s; pointer-events:none; white-space:nowrap; }
+  #toast.show { opacity:1; }
+  #toast.err { background:#DC2626; }
+  #toast.ok { background:#059669; }
+  #toast.warn { background:#D97706; }
+
+  #loading-overlay { display:none; position:fixed; inset:0; background:rgba(255,255,255,0.85); z-index:150; align-items:center; justify-content:center; flex-direction:column; gap:12px; }
+  #loading-overlay.show { display:flex; }
+  .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--teal); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay"><div class="spinner"></div><span style="font-size:14px;color:var(--text-2)" id="loading-msg">Đang tải...</span></div>
+<div id="overlay"></div>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sidebar-header"><h2>Bạn là ai?</h2><p>Chọn tên để đăng nhập</p></div>
+  <div class="sidebar-body" id="staff-list"></div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="modal-bg" class="modal-bg">
+  <div class="modal">
+    <div id="modal-login">
+      <h3 id="modal-name"></h3>
+      <p class="subtitle">Nhập mật khẩu để tiếp tục</p>
+      <div class="field"><label>Mật khẩu</label><input type="password" id="pass-input" placeholder="Nhập mật khẩu..." autocomplete="current-password"></div>
+      <div class="err" id="pass-error">Mật khẩu không đúng.</div>
+      <button class="btn-primary" id="pass-btn">Đăng nhập</button>
+      <div style="text-align:center;margin-top:12px"><button class="btn-link" id="reset-link">Quên mật khẩu? Nhận OTP qua email</button></div>
+    </div>
+    <div id="modal-otp" style="display:none">
+      <h3>Xác minh OTP</h3>
+      <p class="subtitle">Mã 6 số đã gửi đến <strong><span id="otp-email"></span></strong></p>
+      <div class="otp-grid" id="otp-boxes"></div>
+      <div class="suc" id="otp-sent-msg">📧 Đang gửi OTP...</div>
+      <div class="err" id="otp-error">Mã OTP không đúng hoặc đã hết hạn.</div>
+      <button class="btn-primary" id="otp-btn">Xác nhận OTP</button>
+      <div style="text-align:center;margin-top:10px;display:flex;gap:12px;justify-content:center">
+        <button class="btn-link" id="resend-otp">Gửi lại</button>
+        <button class="btn-link" id="back-to-pass">← Quay lại</button>
+      </div>
+    </div>
+    <div id="modal-newpass" style="display:none">
+      <h3>Đặt mật khẩu mới</h3><p class="subtitle">✅ OTP xác minh thành công</p>
+      <div class="field"><label>Mật khẩu mới</label><input type="password" id="new-pass-input" placeholder="Tối thiểu 4 ký tự"></div>
+      <div class="field"><label>Xác nhận mật khẩu</label><input type="password" id="confirm-pass-input" placeholder="Nhập lại mật khẩu"></div>
+      <div class="err" id="newpass-error"></div>
+      <button class="btn-primary" id="newpass-btn">Cập nhật mật khẩu</button>
+    </div>
+    <div style="text-align:center;margin-top:14px"><button class="btn-link" id="cancel-modal" style="color:var(--text-3)">Hủy</button></div>
+  </div>
+</div>
+
+<!-- AVOID MODAL -->
+<div id="avoid-modal-bg" class="modal-bg">
+  <div class="modal">
+    <h3>🚫 Yêu cầu tránh ca</h3>
+    <p class="subtitle">Chọn ô bạn cần tránh — tuần <span id="avoid-week-lbl"></span>. Admin sẽ biết khi xếp lịch.</p>
+    <div class="avoid-outer">
+      <table class="avoid-table" id="avoid-table"></table>
+    </div>
+    <div style="font-size:12px;color:var(--text-3);margin-top:8px" id="avoid-count"></div>
+    <button class="btn-primary" style="margin-top:14px" id="save-avoid-btn">💾 Lưu yêu cầu tránh ca</button>
+    <button class="btn-secondary" id="close-avoid-btn">Đóng</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <button id="menu-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+  <div id="topbar-title">📅 Đăng ký ca trực</div>
+  <div id="user-badge">
+    <div class="badge-av" id="badge-av"></div>
+    <span id="badge-name"></span>
+    <button class="tbtn" id="avoid-btn">🚫 Tránh ca</button>
+    <button class="tbtn" id="logout-btn">Đăng xuất</button>
+  </div>
+</div>
+
+<div id="main">
+  <div class="week-nav">
+    <button class="week-btn" id="prev-week">&#8592;</button>
+    <div class="week-label" id="week-label"></div>
+    <button class="week-btn" id="next-week">&#8594;</button>
+    <div class="week-info" id="week-range"></div>
+  </div>
+  <div class="week-tabs" id="week-tabs"></div>
+  <div class="grid-wrapper">
+    <div class="legend">
+      <span style="font-weight:500">Chú thích:</span>
+      <div class="legend-item"><div class="ldot" style="background:#FDE68A"></div>Ca của bạn</div>
+      <div class="legend-item"><div class="ldot" style="background:#BFDBFE"></div>Người khác</div>
+      <div class="legend-item"><div class="ldot" style="background:#FEE2E2"></div>Đã đủ người</div>
+      <div class="legend-item"><div class="ldot" style="background:#FFF5F5;border:1px solid #F87171"></div>Có yêu cầu tránh</div>
+    </div>
+    <table class="shift-grid">
+      <thead><tr id="grid-header"><th style="background:var(--navy-mid)">Ca \ Ngày</th></tr></thead>
+      <tbody id="grid-body"></tbody>
+    </table>
+    <div class="status-bar"><div class="status-dot"></div><span id="status-text">Đang tải...</span></div>
+  </div>
+</div>
+
+<script>
+// ============ CONSTANTS ============
+const WEBHOOK = "https://script.google.com/macros/s/AKfycbwQEmAU1NgIHn6lB6F1TxCYbNEJQwx2jmls5MbmiIyaV6Uxix_315LZTNxvR_nuJ1cBzg/exec";
+const DAYS    = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','Chủ nhật'];
+const DAY_KEYS= ['2','3','4','5','6','7','CN'];
+const SHIFTS  = [
+  { key:'morning',   label:'Ca Sáng',  time:'07:00–12:00', cls:'shift-morning'   },
+  { key:'afternoon', label:'Ca Chiều', time:'12:00–17:00', cls:'shift-afternoon' },
+  { key:'evening',   label:'Ca Tối',   time:'17:00–22:00', cls:'shift-evening'   },
+];
+const DEFAULT_MAX = { morning:{}, afternoon:{}, evening:{} };
+DAY_KEYS.forEach(d => { DEFAULT_MAX.morning[d]=3; DEFAULT_MAX.afternoon[d]=3; DEFAULT_MAX.evening[d]=2; });
+
+// ============ STATE ============
+let config      = null;   // { staff:[], maxGrid:{} }
+let weekCache   = {};     // { weekKey: { dayKey: { morning:[], afternoon:[], evening:[] } } }
+let avoidData   = {};     // { weekKey: { name: ["dayKey_shiftKey",...] } }
+let currentWeek = null;
+let currentUser = null;
+let selectedStaff = null;
+let currentOtp       = null;
+let currentOtpExpiry = null;
+let isFetching  = false;
+
+// ============ UTILS ============
+function getISOWeek(date) {
+  const d=new Date(date); d.setHours(0,0,0,0);
+  d.setDate(d.getDate()+3-((d.getDay()+6)%7));
+  const w1=new Date(d.getFullYear(),0,4);
+  return 1+Math.round(((d-w1)/86400000-3+((w1.getDay()+6)%7))/7);
+}
+function getWeekStart(y,w) {
+  const j=new Date(y,0,4); const dw=j.getDay()||7;
+  const m=new Date(j); m.setDate(j.getDate()-dw+1+(w-1)*7); return m;
+}
+function fmtD(d) { return d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'}); }
+function wKey(y,w) { return `${y}W${String(w).padStart(2,'0')}`; }
+function initCW() {
+  const n=new Date(); currentWeek={year:n.getFullYear(),week:getISOWeek(n)};
+  currentWeek.key=wKey(currentWeek.year,currentWeek.week);
+}
+function navWeek(d) {
+  let {year,week}=currentWeek; week+=d;
+  if(week<1){year--;week=getISOWeek(new Date(year,11,28));}
+  const last=getISOWeek(new Date(year,11,28)); if(week>last){year++;week=1;}
+  currentWeek={year,week,key:wKey(year,week)};
+  renderWeekNav(); renderWeekTabs(); loadAndRenderWeek();
+}
+function wRange(y,w) {
+  const s=getWeekStart(y,w); const e=new Date(s); e.setDate(s.getDate()+6);
+  return `${fmtD(s)} – ${fmtD(e)} / ${y}`;
+}
+function inits(n) { return n.split(/\s+/).map(p=>p[0]).join('').toUpperCase().slice(0,2); }
+function toast(m,t='',dur=2800) {
+  const el=document.getElementById('toast'); el.textContent=m;
+  el.className='show'+(t?' '+t:'');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className='',dur);
+}
+function loading(show,msg='Đang xử lý...') {
+  document.getElementById('loading-overlay').classList.toggle('show',show);
+  if(msg) document.getElementById('loading-msg').textContent=msg;
+}
+function getMax(sk,dk) { return (config?.maxGrid?.[sk]?.[dk]) ?? 3; }
+
+// ============ API CALLS ============
+async function apiGet(params) {
+  const url = WEBHOOK + '?' + new URLSearchParams(params).toString();
+  const r = await fetch(url, { method:'GET' });
+  return r.json();
+}
+
+async function apiPost(payload) {
+  await fetch(WEBHOOK, {
+    method:'POST', mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  // no-cors → no response body, assume success
+}
+
+// ============ LOAD CONFIG ============
+async function loadConfig() {
+  loading(true,'Đang tải cấu hình...');
+  try {
+    const data = await apiGet({ type:'config' });
+    if (data.ok && data.staff?.length) {
+      config = { staff:data.staff, maxGrid:data.maxGrid||DEFAULT_MAX };
+      try { localStorage.setItem('shift_cfg', JSON.stringify(config)); } catch(e){}
+      return true;
+    }
+  } catch(e) { console.warn('loadConfig failed:', e.message); }
+  // fallback cache
+  try {
+    const c=localStorage.getItem('shift_cfg');
+    if(c){ config=JSON.parse(c); return true; }
+  } catch(e){}
+  config = { staff:[], maxGrid:DEFAULT_MAX };
+  toast('⚠ Không tải được danh sách nhân viên từ Sheets','warn',5000);
+  return false;
+}
+
+// ============ LOAD WEEK SCHEDULE ============
+async function loadWeek(weekKey) {
+  try {
+    const data = await apiGet({ type:'schedule', week:weekKey });
+    if (data.ok && data.schedule) {
+      weekCache[weekKey] = data.schedule;
+      return data.schedule;
+    }
+  } catch(e) { console.warn('loadWeek failed:', e.message); }
+  // return empty
+  const empty = {};
+  DAY_KEYS.forEach(dk => { empty[dk]={morning:[],afternoon:[],evening:[]}; });
+  weekCache[weekKey] = empty;
+  return empty;
+}
+
+async function loadAndRenderWeek() {
+  const weekK = currentWeek.key;
+  renderGridSkeleton();
+  isFetching = true;
+  const schedule = await loadWeek(weekK);
+  isFetching = false;
+  renderGrid(schedule);
+}
+
+// ============ LOAD AVOID ============
+function loadAvoidFromCache() {
+  try {
+    const a=localStorage.getItem('shift_avoid');
+    if(a) avoidData=JSON.parse(a);
+  } catch(e){}
+}
+function saveAvoidCache() {
+  try { localStorage.setItem('shift_avoid',JSON.stringify(avoidData)); } catch(e){}
+}
+
+// ============ WRITE TO SHEETS ============
+async function writeShift(weekK, dayK) {
+  const wd = weekCache[weekK]?.[dayK] || {};
+  document.getElementById('status-text').textContent = '⟳ Đang lưu vào Google Sheets...';
+  await apiPost({
+    action:'setSchedule', week:weekK, day:dayK,
+    morning:   (wd.morning   ||[]).join(', '),
+    afternoon: (wd.afternoon ||[]).join(', '),
+    evening:   (wd.evening   ||[]).join(', '),
+  });
+  document.getElementById('status-text').textContent =
+    '✓ Đã lưu vào Sheets · '+new Date().toLocaleTimeString('vi-VN');
+}
+
+// ============ REGISTER / UNREGISTER ============
+async function registerShift(weekK, dayK, shiftK) {
+  if(!currentUser){ openSidebar(); toast('Hãy đăng nhập trước!','err'); return; }
+  if(isFetching){ toast('Đang tải dữ liệu, vui lòng chờ...','warn'); return; }
+  const max   = getMax(shiftK, dayK);
+  const names = [...(weekCache[weekK]?.[dayK]?.[shiftK]||[])];
+  if(names.includes(currentUser.name)){ toast('Bạn đã đăng ký ca này rồi.','err'); return; }
+  if(names.length>=max){ toast('Ca này đã đủ người!','err'); return; }
+  if(isAvoided(weekK,dayK,shiftK,currentUser.name)){
+    if(!confirm('Bạn đang yêu cầu tránh ca này. Vẫn muốn đăng ký?')) return;
+  }
+  names.push(currentUser.name);
+  if(!weekCache[weekK]) weekCache[weekK]={};
+  if(!weekCache[weekK][dayK]) weekCache[weekK][dayK]={morning:[],afternoon:[],evening:[]};
+  weekCache[weekK][dayK][shiftK] = names;
+  renderGrid(weekCache[weekK]);
+  await writeShift(weekK, dayK);
+  toast(`Đã đăng ký ${SHIFTS.find(s=>s.key===shiftK)?.label}!`,'ok');
+}
+
+async function unregisterShift(weekK, dayK, shiftK) {
+  if(!currentUser||isFetching) return;
+  const names=(weekCache[weekK]?.[dayK]?.[shiftK]||[]).filter(n=>n!==currentUser.name);
+  weekCache[weekK][dayK][shiftK]=names;
+  renderGrid(weekCache[weekK]);
+  await writeShift(weekK, dayK);
+  toast('Đã hủy đăng ký ca.','');
+}
+
+// ============ AVOID ============
+function isAvoided(wk,dk,sk,name) {
+  return (avoidData[wk]?.[name]||[]).includes(dk+'_'+sk);
+}
+function hasAvoiders(wk,dk,sk) {
+  return Object.values(avoidData[wk]||{}).some(arr=>arr.includes(dk+'_'+sk));
+}
+function avoidersList(wk,dk,sk) {
+  return Object.entries(avoidData[wk]||{})
+    .filter(([,a])=>a.includes(dk+'_'+sk)).map(([n])=>n);
+}
+
+// ============ RENDER GRID SKELETON ============
+function renderGridSkeleton() {
+  const header=document.getElementById('grid-header');
+  const body=document.getElementById('grid-body');
+  while(header.children.length>1) header.removeChild(header.lastChild);
+  DAYS.forEach(d=>{const th=document.createElement('th');th.textContent=d;header.appendChild(th);});
+  body.innerHTML='';
+  SHIFTS.forEach(shift=>{
+    const tr=document.createElement('tr'); tr.className=shift.cls;
+    const tdL=document.createElement('td'); tdL.className='shift-label';
+    tdL.innerHTML=`<div class="sn">${shift.label}</div><div class="st">${shift.time}</div>`;
+    tr.appendChild(tdL);
+    DAY_KEYS.forEach(()=>{
+      const td=document.createElement('td'); td.className='shift-cell';
+      td.innerHTML='<div class="cell-loading"></div>'; tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+// ============ RENDER GRID ============
+function renderGrid(schedule) {
+  const weekK=currentWeek.key;
+  const header=document.getElementById('grid-header');
+  const body=document.getElementById('grid-body');
+  while(header.children.length>1) header.removeChild(header.lastChild);
+  DAYS.forEach(d=>{const th=document.createElement('th');th.textContent=d;header.appendChild(th);});
+  body.innerHTML='';
+
+  SHIFTS.forEach(shift=>{
+    const tr=document.createElement('tr'); tr.className=shift.cls;
+    const tdL=document.createElement('td'); tdL.className='shift-label';
+    tdL.innerHTML=`<div class="sn">${shift.label}</div><div class="st">${shift.time}</div>`;
+    tr.appendChild(tdL);
+
+    DAY_KEYS.forEach(dayK=>{
+      const names=[...((schedule?.[dayK]?.[shift.key])||[])];
+      const max=getMax(shift.key,dayK);
+      const full=names.length>=max;
+      const avoiders=avoidersList(weekK,dayK,shift.key);
+      const myAvoid=currentUser&&isAvoided(weekK,dayK,shift.key,currentUser.name);
+
+      const td=document.createElement('td');
+      let cls='shift-cell';
+      if(full) cls+=' cell-full';
+      if(avoiders.length&&!full) cls+=' cell-avoided-bg';
+      td.className=cls;
+
+      // top row: counter + avoid badge
+      const top=document.createElement('div'); top.className='cell-top';
+      const cmax=document.createElement('div'); cmax.className='cell-max';
+      cmax.textContent=`${names.length}/${max}`;
+      top.appendChild(cmax);
+      if(avoiders.length){
+        const av=document.createElement('div'); av.className='av-badge';
+        av.title='Tránh ca: '+avoiders.join(', ');
+        av.textContent='🚫'+avoiders.length;
+        top.appendChild(av);
+      }
+      td.appendChild(top);
+
+      // name tags
+      const nd=document.createElement('div'); nd.className='cell-names';
+      names.forEach(name=>{
+        const mine=currentUser&&name===currentUser.name;
+        const tag=document.createElement('span');
+        tag.className='name-tag '+(mine?'mine':'others');
+        if(mine){
+          tag.innerHTML=`${name} <span class="tag-del" title="Hủy">✕</span>`;
+          tag.querySelector('.tag-del').addEventListener('click',e=>{
+            e.stopPropagation(); unregisterShift(weekK,dayK,shift.key);
+          });
+        } else { tag.textContent=name; }
+        nd.appendChild(tag);
+      });
+      if(full){ const fb=document.createElement('span'); fb.className='full-badge'; fb.textContent='Đủ người'; nd.appendChild(fb); }
+      td.appendChild(nd);
+
+      const hint=document.createElement('div'); hint.className='cell-hint';
+      hint.textContent = myAvoid ? '⚠ Bạn đang tránh ca này' : currentUser ? '+ Đăng ký ca này' : '🔒 Đăng nhập để đăng ký';
+      td.appendChild(hint);
+
+      if(!full) td.addEventListener('click',()=>registerShift(weekK,dayK,shift.key));
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+
+  // status
+  let total=0;
+  if(schedule) Object.values(schedule).forEach(day=>SHIFTS.forEach(s=>total+=(day[s.key]||[]).length));
+  const st=document.getElementById('status-text');
+  if(currentUser){
+    const myAv=(avoidData[weekK]?.[currentUser.name]||[]).length;
+    st.textContent=`${currentUser.name} · Tuần ${weekK} · ${total} lượt đăng ký`+(myAv?` · Tránh ${myAv} ca`:'');
+  } else {
+    st.textContent=`Tuần ${weekK} · ${total} lượt đăng ký · Nhấn ≡ để đăng nhập`;
+  }
+}
+
+// ============ WEEK NAV ============
+function renderWeekNav() {
+  const {year,week}=currentWeek;
+  document.getElementById('week-label').textContent=`Tuần ${week} / ${year}`;
+  document.getElementById('week-range').textContent=wRange(year,week);
+}
+function renderWeekTabs() {
+  const tabs=document.getElementById('week-tabs'); tabs.innerHTML='';
+  const now=new Date(); const yr=now.getFullYear(); const tw=getISOWeek(now);
+  for(let d=0;d<=5;d++){
+    let wk=tw+d; let y2=yr;
+    const last=getISOWeek(new Date(y2,11,28)); if(wk>last){y2++;wk-=last;}
+    const k=wKey(y2,wk);
+    const lbl=d===0?'Tuần này':d===1?'Tuần sau':`Tuần ${wk}`;
+    const btn=document.createElement('button');
+    btn.className='week-tab'+(k===currentWeek.key?' active':'');
+    btn.textContent=lbl;
+    btn.addEventListener('click',()=>{ currentWeek={year:y2,week:wk,key:k}; renderWeekNav(); renderWeekTabs(); loadAndRenderWeek(); });
+    tabs.appendChild(btn);
+  }
+}
+document.getElementById('prev-week').addEventListener('click',()=>navWeek(-1));
+document.getElementById('next-week').addEventListener('click',()=>navWeek(1));
+
+// ============ SIDEBAR ============
+function renderStaff() {
+  const el=document.getElementById('staff-list'); el.innerHTML='';
+  (config?.staff||[]).forEach(s=>{
+    const div=document.createElement('div'); div.className='staff-item';
+    div.innerHTML=`<div class="staff-avatar">${inits(s.name)}</div>
+      <div class="staff-info"><div class="sname">${s.name}</div><div class="semail">${s.email}</div></div>`;
+    div.addEventListener('click',()=>openLogin(s));
+    el.appendChild(div);
+  });
+}
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('show');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+document.getElementById('menu-btn').addEventListener('click',openSidebar);
+document.getElementById('overlay').addEventListener('click',closeSidebar);
+
+// ============ LOGIN ============
+function openLogin(s) {
+  selectedStaff=s;
+  document.getElementById('modal-name').textContent=s.name;
+  document.getElementById('modal-login').style.display='';
+  document.getElementById('modal-otp').style.display='none';
+  document.getElementById('modal-newpass').style.display='none';
+  document.getElementById('pass-input').value='';
+  document.getElementById('pass-error').style.display='none';
+  document.getElementById('modal-bg').classList.add('show');
+  setTimeout(()=>document.getElementById('pass-input').focus(),100);
+}
+function closeLogin(){document.getElementById('modal-bg').classList.remove('show');selectedStaff=null;}
+function loginSuccess(s){
+  currentUser={name:s.name,email:s.email};
+  closeLogin(); closeSidebar();
+  document.getElementById('user-badge').classList.add('show');
+  document.getElementById('badge-name').textContent=s.name;
+  document.getElementById('badge-av').textContent=inits(s.name);
+  toast(`Xin chào, ${s.name}!`,'ok');
+  renderGrid(weekCache[currentWeek.key]);
+}
+
+document.getElementById('pass-btn').addEventListener('click',()=>{
+  const p=document.getElementById('pass-input').value;
+  const s=selectedStaff; if(!s) return;
+  if(p===String(s.pass)){ loginSuccess(s); }
+  else { document.getElementById('pass-error').style.display='block'; }
+});
+document.getElementById('pass-input').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('pass-btn').click(); });
+
+// OTP — gửi thật qua Apps Script (MailApp.sendEmail)
+function generateOtp(){ return String(Math.floor(100000+Math.random()*900000)); }
+
+async function sendOtp(staff) {
+  currentOtp = generateOtp();
+  const otpExpiry = Date.now() + 10 * 60 * 1000; // hết hạn sau 10 phút
+  currentOtpExpiry = otpExpiry;
+
+  const el = document.getElementById('otp-sent-msg');
+  el.style.color = 'var(--text-2)';
+  el.textContent = '📧 Đang gửi OTP đến ' + staff.email + '...';
+
+  // Tạo nội dung email HTML đẹp
+  const emailHtml = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;border:1px solid #E2E8F0;border-radius:12px">
+      <h2 style="color:#0F1B2D;margin-bottom:8px">🔐 Đặt lại mật khẩu</h2>
+      <p style="color:#475569;margin-bottom:20px">Xin chào <strong>${staff.name}</strong>,</p>
+      <p style="color:#475569;margin-bottom:16px">Bạn vừa yêu cầu đặt lại mật khẩu cho hệ thống Đăng ký ca trực. Mã OTP của bạn là:</p>
+      <div style="background:#F4F6F9;border:2px dashed #CBD5E1;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px">
+        <span style="font-size:36px;font-weight:700;letter-spacing:10px;color:#0F1B2D;font-family:monospace">${currentOtp}</span>
+      </div>
+      <p style="color:#94A3B8;font-size:13px">⏱ Mã có hiệu lực trong <strong>10 phút</strong>. Không chia sẻ mã này với ai.</p>
+      <hr style="border:none;border-top:1px solid #E2E8F0;margin:20px 0">
+      <p style="color:#CBD5E1;font-size:12px">Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
+    </div>`;
+
+  // Dùng no-cors: browser không đọc được response nhưng Apps Script vẫn nhận và gửi email thật.
+  // "Failed to fetch" với cors là do Google chặn cross-origin — không phải lỗi gửi mail.
+  fetch(WEBHOOK, {
+    method: 'POST',
+    mode:   'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action:   'sendOtp',
+      to:       staff.email,
+      name:     staff.name,
+      otp:      currentOtp,
+      htmlBody: emailHtml,
+    })
+  }).catch(err => console.warn('[OTP no-cors warn]', err.message));
+  // Fire & forget — không cần await. Apps Script nhận request là gửi mail ngay.
+
+  el.style.color = '#059669';
+  el.textContent = `✅ OTP đã gửi đến ${staff.email}. Kiểm tra hộp thư (kể cả Spam).`;
+  startOtpCountdown(10 * 60);
+}
+
+let _countdownTimer = null;
+function startOtpCountdown(seconds) {
+  clearInterval(_countdownTimer);
+  const btn = document.getElementById('resend-otp');
+  _countdownTimer = setInterval(() => {
+    seconds--;
+    if (seconds <= 0) {
+      clearInterval(_countdownTimer);
+      btn.textContent = 'Gửi lại';
+      btn.disabled = false;
+      currentOtp = null; // OTP hết hạn
+      const el = document.getElementById('otp-sent-msg');
+      el.style.color = '#DC2626';
+      el.textContent = '⏱ OTP đã hết hạn. Vui lòng gửi lại.';
+    } else {
+      const m = Math.floor(seconds/60), s = seconds%60;
+      btn.textContent = `Gửi lại (${m}:${String(s).padStart(2,'0')})`;
+      btn.disabled = true;
+    }
+  }, 1000);
+  btn.disabled = true;
+}
+function setupOtpInputs(){
+  const c=document.getElementById('otp-boxes'); c.innerHTML='';
+  for(let i=0;i<6;i++){
+    const inp=document.createElement('input'); inp.className='otp-input'; inp.maxLength=1; inp.type='tel';
+    inp.addEventListener('input',()=>{ if(inp.value&&i<5) c.children[i+1].focus(); });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Backspace'&&!inp.value&&i>0) c.children[i-1].focus(); });
+    c.appendChild(inp);
+  }
+}
+document.getElementById('reset-link').addEventListener('click',async()=>{
+  const s=selectedStaff; if(!s) return;
+  document.getElementById('otp-email').textContent=s.email;
+  document.getElementById('otp-error').style.display='none';
+  document.getElementById('modal-login').style.display='none';
+  document.getElementById('modal-otp').style.display='';
+  setupOtpInputs();
+  document.getElementById('otp-boxes').children[0]?.focus();
+  await sendOtp(s);
+});
+document.getElementById('resend-otp').addEventListener('click',async()=>{ if(selectedStaff) await sendOtp(selectedStaff); });
+document.getElementById('otp-btn').addEventListener('click',()=>{
+  const inputs=document.getElementById('otp-boxes').querySelectorAll('input');
+  const otp=Array.from(inputs).map(i=>i.value).join('');
+  if(otp===currentOtp&&currentOtp&&Date.now()<(currentOtpExpiry||0)){
+    document.getElementById('modal-otp').style.display='none';
+    document.getElementById('modal-newpass').style.display='';
+    document.getElementById('new-pass-input').value='';
+    document.getElementById('confirm-pass-input').value='';
+    document.getElementById('newpass-error').style.display='none';
+  } else { document.getElementById('otp-error').style.display='block'; }
+});
+document.getElementById('back-to-pass').addEventListener('click',()=>{ document.getElementById('modal-otp').style.display='none'; document.getElementById('modal-login').style.display=''; });
+document.getElementById('newpass-btn').addEventListener('click',async()=>{
+  const np=document.getElementById('new-pass-input').value;
+  const cp=document.getElementById('confirm-pass-input').value;
+  const err=document.getElementById('newpass-error');
+  if(!np||np.length<4){err.textContent='Tối thiểu 4 ký tự.';err.style.display='block';return;}
+  if(np!==cp){err.textContent='Mật khẩu không khớp.';err.style.display='block';return;}
+  const s=selectedStaff;
+
+  loading(true,'Đang lưu mật khẩu mới...');
+  await apiPost({ action:'setPassword', name:s.name, newPass:np });   // ← GHI LÊN GOOGLE SHEET
+  loading(false);
+
+  const idx=config.staff.findIndex(x=>x.name===s.name);
+  if(idx>=0){ config.staff[idx].pass=np; s.pass=np;
+    try{localStorage.setItem('shift_cfg',JSON.stringify(config));}catch(e){}
+  }
+  currentOtp=null;
+  toast('Đã cập nhật mật khẩu!','ok');
+  loginSuccess(s);
+});
+document.getElementById('cancel-modal').addEventListener('click',closeLogin);
+document.getElementById('logout-btn').addEventListener('click',()=>{
+  currentUser=null; document.getElementById('user-badge').classList.remove('show');
+  toast('Đã đăng xuất.'); renderGrid(weekCache[currentWeek.key]);
+});
+
+// ============ AVOID MODAL ============
+function openAvoidModal(){
+  if(!currentUser){toast('Hãy đăng nhập trước!','err');return;}
+  const weekK=currentWeek.key;
+  document.getElementById('avoid-week-lbl').textContent=weekK;
+  const table=document.getElementById('avoid-table'); table.innerHTML='';
+  const userAv=avoidData[weekK]?.[currentUser.name]||[];
+
+  // Header row
+  const hdr=table.insertRow(); hdr.insertCell().textContent='';
+  DAYS.forEach(d=>{const th=document.createElement('th');th.textContent=d.replace('Thứ ','T').replace('Chủ nhật','CN');hdr.appendChild(th);});
+
+  SHIFTS.forEach(shift=>{
+    const row=table.insertRow();
+    const lbl=row.insertCell(); lbl.style.cssText='font-size:12px;font-weight:600;padding:4px 6px;color:var(--text-2);white-space:nowrap;';
+    lbl.textContent=shift.label.replace('Ca ','');
+    DAY_KEYS.forEach(dayK=>{
+      const k=dayK+'_'+shift.key;
+      const td=row.insertCell(); td.style.cssText='padding:3px;';
+      const cell=document.createElement('div');
+      cell.className='avoid-cell'+(userAv.includes(k)?' sel':'');
+      cell.dataset.k=k; cell.textContent='✓';
+      cell.addEventListener('click',()=>{ cell.classList.toggle('sel'); updateAvoidCount(); });
+      td.appendChild(cell);
+    });
+  });
+  updateAvoidCount();
+  document.getElementById('avoid-modal-bg').classList.add('show');
+}
+function updateAvoidCount(){
+  const n=document.querySelectorAll('#avoid-table .avoid-cell.sel').length;
+  document.getElementById('avoid-count').textContent=n?`Đang chọn tránh ${n} ca`:'Chưa chọn ca nào cần tránh';
+}
+document.getElementById('avoid-btn').addEventListener('click',openAvoidModal);
+document.getElementById('close-avoid-btn').addEventListener('click',()=>document.getElementById('avoid-modal-bg').classList.remove('show'));
+document.getElementById('save-avoid-btn').addEventListener('click',async()=>{
+  if(!currentUser) return;
+  const weekK=currentWeek.key;
+  const sel=Array.from(document.querySelectorAll('#avoid-table .avoid-cell.sel')).map(c=>c.dataset.k);
+  if(!avoidData[weekK]) avoidData[weekK]={};
+  avoidData[weekK][currentUser.name]=sel;
+  saveAvoidCache();
+  // Ghi avoid lên Sheets cột H của Admin sheet
+  await apiPost({ action:'setAvoid', week:weekK, name:currentUser.name, avoids:sel });
+  document.getElementById('avoid-modal-bg').classList.remove('show');
+  toast(`Đã lưu ${sel.length} ca cần tránh.`,'ok');
+  renderGrid(weekCache[weekK]);
+});
+
+// ============ START ============
+initCW();
+(async () => {
+  loading(true,'Đang tải danh sách nhân viên...');
+  await loadConfig();
+  loadAvoidFromCache();
+  loading(false);
+  renderStaff();
+  renderWeekNav();
+  renderWeekTabs();
+  await loadAndRenderWeek();
+})();
+</script>
+</body>
+</html>
